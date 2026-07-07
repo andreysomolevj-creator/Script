@@ -1,369 +1,350 @@
--- // RAGE mode: ESP + 360 Aimbot + Auto-Dodge (anti-aim)
--- // ESP: красная подсветка всех игроков без имён
--- // Aimbot: мгновенный доворот на голову, комбинированный приоритет
--- // Dodge: уклонение, когда противник наводит прицел на вас
--- // Меню: перетаскиваемое, ввод угла, кнопки ESP/Aimbot/Dodge
+--[[
+    Optimized & Stealth version for Delta (key removed)
+]]
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
+local p=game:GetService("Players")
+local r=game:GetService("RunService")
+local w=game:GetService("Workspace")
+local c=w.CurrentCamera
+local l=p.LocalPlayer
+local v=game:GetService("VirtualInputManager")
 
-local LocalPlayer = Players.LocalPlayer
+-- Key removed – always active
+local ia=true
 
--- =================== НАСТРОЙКИ ПО УМОЛЧАНИЮ ===================
-local ESP_ENABLED = true
-local AIMBOT_ENABLED = true
-local AIM_ANGLE = 180          -- обзор аимбота (180 = 360°)
+local ee=false
+local ec=Color3.fromRGB(255,0,0)
+local ef=0.7
+local eo=0
+
+local ae=false
+local aa=180
+
+local af=false
+local acd=0.15
+local laf=0
+
+local de=false
+local da=15
+local dr=200
+local dd=20
+local dcd=0.3
+
+local ws=16
+
+local h={}
+local sg=nil
+local mp=UDim2.new(0.5,-110,0.2,-110)
+local ld=0
+
+l.CharacterAdded:Connect(function() ld=0 end)
+
+local function gp(ch)
+    local t={}
+    if ch then for _,v in ipairs(ch:GetDescendants()) do if v:IsA("BasePart") then t[#t+1]=v end end end
+    return t
+end
+
+local rp=RaycastParams.new()
+rp.FilterType=Enum.RaycastFilterType.Blacklist
+rp.IgnoreWater=true
+
+local function ve(ep,ec_)
+    if not ec_ or not l.Character then return false end
+    local mp_=c.CFrame.Position
+    local d=(mp_-ep).Unit
+    local dist=(mp_-ep).Magnitude
+    local ig={}
+    for _,v in ipairs(gp(l.Character)) do ig[#ig+1]=v end
+    for _,v in ipairs(gp(ec_)) do ig[#ig+1]=v end
+    rp.FilterDescendantsInstances=ig
+    return w:Raycast(ep, d*dist, rp)==nil
+end
+
+local function dc(o,di,dist)
+    local ig={}
+    if l.Character then for _,v in ipairs(gp(l.Character)) do ig[#ig+1]=v end end
+    for _,pl in ipairs(p:GetPlayers()) do
+        if pl~=l and pl.Character then for _,v in ipairs(gp(pl.Character)) do ig[#ig+1]=v end end
+    end
+    rp.FilterDescendantsInstances=ig
+    return w:Raycast(o, di*dist, rp)==nil
+end
+
+-- GUI Setup
+local function cm()
+    for _,o in ipairs(l.PlayerGui:GetChildren()) do if o.Name=="LoadingUI" then o:Destroy() end end
+    if sg then sg:Destroy() end
+    sg=Instance.new("ScreenGui")
+    sg.Name="LoadingUI"
+    sg.Parent=l.PlayerGui
+
+    local mf=Instance.new("Frame")
+    mf.Size=UDim2.new(0,230,0,280)
+    mf.Position=mp
+    mf.BackgroundColor3=Color3.fromRGB(20,20,20)
+    mf.BackgroundTransparency=0.15
+    mf.BorderSizePixel=0
+    mf.Active=true
+    mf.Parent=sg
+
+    local tb=Instance.new("TextButton")
+    tb.Size=UDim2.new(1,0,0,24)
+    tb.BackgroundColor3=Color3.fromRGB(40,40,40)
+    tb.Text="Jo-Jo v4 paid"   -- you can change this title
+    tb.TextColor3=Color3.fromRGB(255,80,80)
+    tb.Font=Enum.Font.SourceSansBold
+    tb.TextSize=14
+    tb.BorderSizePixel=0
+    tb.Parent=mf
+
+    local function ai(x,y,lt,def,cb)
+        local lb=Instance.new("TextLabel")
+        lb.Size=UDim2.new(0,90,0,18)
+        lb.Position=UDim2.new(0,x,0,y)
+        lb.BackgroundTransparency=1
+        lb.Text=lt
+        lb.TextColor3=Color3.fromRGB(200,200,200)
+        lb.Font=Enum.Font.SourceSans
+        lb.TextSize=12
+        lb.Parent=mf
+        local ib=Instance.new("TextBox")
+        ib.Size=UDim2.new(0,70,0,20)
+        ib.Position=UDim2.new(0,x+95,0,y-1)
+        ib.BackgroundColor3=Color3.fromRGB(50,50,50)
+        ib.TextColor3=Color3.fromRGB(255,255,255)
+        ib.Font=Enum.Font.SourceSans
+        ib.TextSize=12
+        ib.Text=tostring(def)
+        ib.Parent=mf
+        ib.FocusLost:Connect(function()
+            local n=tonumber(ib.Text)
+            if n then cb(n) else ib.Text=tostring(def) end
+        end)
+        return ib
+    end
+
+    -- Key input removed – always active
+
+    local fov=ai(10,60,"AIM FOV:",aa,function(n) aa=math.clamp(n,1,180) end)
+    local da_=ai(10,85,"Dodge°:",da,function(n) da=math.clamp(n,1,90) end)
+    local dd_=ai(10,110,"DodgeDist:",dd,function(n) dd=math.clamp(n,1,100) end)
+    local si=ai(10,135,"Speed:",ws,function(n)
+        ws=math.clamp(n,1,500)
+        if l.Character then local h_=l.Character:FindFirstChild("Humanoid") if h_ then h_.WalkSpeed=ws end end
+    end)
+
+    local function ab_(x,y,text,init,cb)
+        local btn=Instance.new("TextButton")
+        btn.Size=UDim2.new(0,100,0,30)
+        btn.Position=UDim2.new(0,x,0,y)
+        local st=init
+        btn.BackgroundColor3=st and Color3.fromRGB(0,150,0) or Color3.fromRGB(150,0,0)
+        btn.Text=text..": "..(st and "ON" or "OFF")
+        btn.TextColor3=Color3.fromRGB(255,255,255)
+        btn.Font=Enum.Font.SourceSansBold
+        btn.TextSize=12
+        btn.BorderSizePixel=0
+        btn.Parent=mf
+        btn.MouseButton1Click:Connect(function()
+            -- key check removed
+            st=not st
+            btn.BackgroundColor3=st and Color3.fromRGB(0,150,0) or Color3.fromRGB(150,0,0)
+            btn.Text=text..": "..(st and "ON" or "OFF")
+            cb(st)
+        end)
+        return btn
+    end
+
+    local eb=ab_(10,165,"ESP",false,function(s)
+        ee=s
+        if s then for _,pl in ipairs(p:GetPlayers()) do if pl~=l then ue(pl) end end
+        else for pl,_ in pairs(h) do re(pl) end h={} end
+    end)
+    local ab=ab_(120,165,"Aimbot",false,function(s) ae=s end)
+    local afb=ab_(10,200,"AutoFire",false,function(s) af=s end)
+    local db=ab_(120,200,"Dodge",false,function(s) de=s end)
+
+    -- dragging
+    local drg,ds,fs=false,nil,nil
+    tb.InputBegan:Connect(function(inp)
+        if inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseButton1 then
+            drg=true ds=inp.Position fs=mf.Position
+        end
+    end)
+    tb.InputChanged:Connect(function(inp)
+        if drg and (inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseMovement) then
+            local delta=inp.Position-ds
+            mf.Position=UDim2.new(fs.X.Scale,fs.X.Offset+delta.X,fs.Y.Scale,fs.Y.Offset+delta.Y)
+        end
+    end)
+    tb.InputEnded:Connect(function(inp)
+        if drg then mp=mf.Position drg=false end
+    end)
+end
 
 -- ESP
-local ESP_COLOR = Color3.fromRGB(255, 0, 0)
-local ESP_FILL_TRANSPARENCY = 0.7
-local ESP_OUTLINE_TRANSPARENCY = 0
-
--- Уклонение
-local DODGE_ENABLED = true
-local DODGE_ANGLE = 15        -- градусов (точность прицела врага для срабатывания)
-local DODGE_RANGE = 50        -- дальность срабатывания (в стадах)
-local DODGE_DISTANCE = 8      -- дистанция рывка в сторону
-local DODGE_COOLDOWN = 0.5    -- секунд между уклонениями
--- ============================================================
-
-local playerHighlights = {}
-local lastDodgeTime = 0
-
--- =================== ESP ===================
-local function createHighlight(character)
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "RAGE_ESP"
-    highlight.Adornee = character
-    highlight.FillColor = ESP_COLOR
-    highlight.FillTransparency = ESP_FILL_TRANSPARENCY
-    highlight.OutlineColor = ESP_COLOR
-    highlight.OutlineTransparency = ESP_OUTLINE_TRANSPARENCY
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = character
-    return highlight
+local function ch_(char)
+    local hl=Instance.new("Highlight")
+    hl.Name="Highlight"
+    hl.Adornee=char
+    hl.FillColor=ec
+    hl.FillTransparency=ef
+    hl.OutlineColor=ec
+    hl.OutlineTransparency=eo
+    hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent=char
+    return hl
 end
 
-local function updateESP(player)
-    local character = player.Character
-    if not character then return end
-    if playerHighlights[player] then
-        playerHighlights[player]:Destroy()
-        playerHighlights[player] = nil
-    end
-    playerHighlights[player] = createHighlight(character)
-end
-
-local function removeESP(player)
-    if playerHighlights[player] then
-        playerHighlights[player]:Destroy()
-        playerHighlights[player] = nil
-    end
-end
-
-for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        player.CharacterAdded:Connect(function() updateESP(player) end)
-        if player.Character then updateESP(player) end
-    end
-end
-
-Players.PlayerAdded:Connect(function(player)
-    if player == LocalPlayer then return end
-    player.CharacterAdded:Connect(function() updateESP(player) end)
-    if player.Character then updateESP(player) end
-end)
-
-Players.PlayerRemoving:Connect(removeESP)
-
--- =================== AIMBOT ===================
-local function getAllParts(character)
-    local parts = {}
-    if character then
-        for _, v in ipairs(character:GetDescendants()) do
-            if v:IsA("BasePart") then table.insert(parts, v) end
-        end
-    end
-    return parts
-end
-
-local function getTargetPosition(character)
-    local head = character:FindFirstChild("Head")
-    if head and head:IsA("BasePart") then return head.Position end
-    local root = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso")
-    if root and root:IsA("BasePart") then return root.Position + Vector3.new(0, 2, 0) end
-    return nil
-end
-
-local function worldToScreen(point)
-    local vec, onScreen = Camera:WorldToViewportPoint(point)
-    return Vector2.new(vec.X, vec.Y), onScreen, vec.Z
-end
-
-local function isVisible(targetPosition, targetCharacter)
-    if not targetCharacter then return false end
-    local cameraPos = Camera.CFrame.Position
-    local direction = (targetPosition - cameraPos).Unit
-    local rayDistance = (targetPosition - cameraPos).Magnitude
-    local ignoreList = {}
-    local localParts = getAllParts(LocalPlayer.Character)
-    local targetParts = getAllParts(targetCharacter)
-    for _, part in ipairs(localParts) do table.insert(ignoreList, part) end
-    for _, part in ipairs(targetParts) do table.insert(ignoreList, part) end
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = ignoreList
-    raycastParams.IgnoreWater = true
-    local rayResult = Workspace:Raycast(cameraPos, direction * rayDistance, raycastParams)
-    return rayResult == nil
-end
-
-local function findBestTarget()
-    local bestTarget = nil
-    local bestScore = math.huge
-    local screenCenter = Camera.ViewportSize / 2
-    local camDir = Camera.CFrame.LookVector
-    local camPos = Camera.CFrame.Position
-    local maxAngleRad = math.rad(AIM_ANGLE)
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player == LocalPlayer then continue end
-        if not player.Character then continue end
-        local targetPos = getTargetPosition(player.Character)
-        if not targetPos then continue end
-        local dirToTarget = (targetPos - camPos).Unit
-        local dot = camDir:Dot(dirToTarget)
-        local angle = math.acos(math.clamp(dot, -1, 1))
-        if angle > maxAngleRad then continue end
-        if not isVisible(targetPos, player.Character) then continue end
-        local screenPos, onScreen, depth = worldToScreen(targetPos)
-        if not onScreen or depth <= 0 then continue end
-        local distToCenter = (screenPos - screenCenter).Magnitude
-        local distance3D = (targetPos - camPos).Magnitude
-        local score = distToCenter * 0.6 + distance3D * 0.4
-        if score < bestScore then
-            bestScore = score
-            bestTarget = player
-        end
-    end
-    return bestTarget
-end
-
-local function instantAim(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return end
-    local targetPos = getTargetPosition(targetPlayer.Character)
-    if not targetPos then return end
-    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
-end
-
--- =================== Уклонение ===================
-local function checkDodge()
-    if not DODGE_ENABLED then return end
-    local char = LocalPlayer.Character
+function ue(pl)
+    if not ia or not ee then return end
+    local char=pl.Character
     if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid or humanoid:GetState() == Enum.HumanoidStateType.Dead then return end
-    local myPos = root.Position
+    if h[pl] then h[pl]:Destroy() end
+    h[pl]=ch_(char)
+end
 
-    local now = tick()
-    if now - lastDodgeTime < DODGE_COOLDOWN then return end
+function re(pl)
+    if h[pl] then h[pl]:Destroy() h[pl]=nil end
+end
 
-    for _, enemy in ipairs(Players:GetPlayers()) do
-        if enemy == LocalPlayer then continue end
-        if not enemy.Character then continue end
-        local enemyHead = enemy.Character:FindFirstChild("Head")
-        if not enemyHead or not enemyHead:IsA("BasePart") then continue end
-        local enemyPos = enemyHead.Position
-        local distance = (enemyPos - myPos).Magnitude
-        if distance > DODGE_RANGE then continue end
-        local enemyLook = enemyHead.CFrame.LookVector
-        local dirToMe = (myPos - enemyPos).Unit
-        local dot = enemyLook:Dot(dirToMe)
-        local angle = math.deg(math.acos(math.clamp(dot, -1, 1)))
-        if angle <= DODGE_ANGLE then
-            -- Враг целится в нас, выполняем рывок в сторону
-            local rightVector = enemyHead.CFrame.RightVector
-            -- Случайно влево или вправо относительно линии взгляда врага
-            local dodgeDir = (math.random() < 0.5 and rightVector or -rightVector)
-            local newPos = root.Position + dodgeDir * DODGE_DISTANCE
-            root.CFrame = CFrame.new(newPos)
-            lastDodgeTime = now
-            break -- одно уклонение за кадр
+for _,pl in ipairs(p:GetPlayers()) do
+    if pl~=l then
+        pl.CharacterAdded:Connect(function() ue(pl) end)
+        if pl.Character then ue(pl) end
+    end
+end
+p.PlayerAdded:Connect(function(pl)
+    if pl==l then return end
+    pl.CharacterAdded:Connect(function() ue(pl) end)
+    if pl.Character then ue(pl) end
+end)
+p.PlayerRemoving:Connect(re)
+
+-- Aimbot
+local function gtp(char)
+    local hd=char:FindFirstChild("Head")
+    if hd and hd:IsA("BasePart") then return hd.Position end
+    local rt=char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
+    return rt and rt.Position+Vector3.new(0,2,0)
+end
+
+local function eam(hd)
+    if not l.Character then return false end
+    local mr=l.Character:FindFirstChild("HumanoidRootPart")
+    if not mr then return false end
+    local look=hd.CFrame.LookVector
+    local dtm=(mr.Position-hd.Position).Unit
+    return math.deg(math.acos(math.clamp(look:Dot(dtm),-1,1)))<=30
+end
+
+local function fbt()
+    if not ia or not ae then return nil end
+    local best,bscore=nil,math.huge
+    local cd,cp=c.CFrame.LookVector,c.CFrame.Position
+    local mr=math.rad(aa)
+    local sc=c.ViewportSize/2
+    for _,pl in ipairs(p:GetPlayers()) do
+        if pl~=l and pl.Character then
+            local tp=gtp(pl.Character)
+            if tp then
+                local dt=(tp-cp).Unit
+                local ang=math.acos(math.clamp(cd:Dot(dt),-1,1))
+                if ang<=mr and ve(tp,pl.Character) then
+                    local vec,ons=c:WorldToViewportPoint(tp)
+                    if ons and vec.Z>0 then
+                        local sp=Vector2.new(vec.X,vec.Y)
+                        local sc2=(sp-sc).Magnitude*0.6+(tp-cp).Magnitude*0.4
+                        local hd=pl.Character:FindFirstChild("Head")
+                        if hd and eam(hd) then sc2=sc2*0.3 end
+                        if sc2<bscore then bscore=sc2 best=pl end
+                    end
+                end
+            end
         end
+    end
+    return best
+end
+
+local function ra()
+    if not ia or not ae then return false end
+    local t=fbt()
+    if t then
+        local tp=gtp(t.Character)
+        if tp then c.CFrame=CFrame.lookAt(c.CFrame.Position,tp) return true end
+    end
+    return false
+end
+
+-- AutoFire
+local function taf(ta_)
+    if not ia or not af or not ta_ then return end
+    local now=tick()
+    if now-laf>=acd*(0.8+math.random()*0.4) then
+        laf=now
+        pcall(function()
+            v:SendMouseButtonEvent(0,0,0,true,game,0)
+            task.wait(0.03+math.random()*0.04)
+            v:SendMouseButtonEvent(0,0,0,false,game,0)
+        end)
     end
 end
 
--- Главный цикл
-RunService.RenderStepped:Connect(function()
-    if AIMBOT_ENABLED then
-        local target = findBestTarget()
-        if target then
-            instantAim(target)
+-- Dodge
+local function dod()
+    if not ia or not de then return end
+    if tick()-ld<dcd*(0.9+math.random()*0.2) then return end
+    local char=l.Character
+    if not char then return end
+    local root=char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local hum=char:FindFirstChild("Humanoid")
+    if hum and hum:GetState()==Enum.HumanoidStateType.Dead then return end
+    local my=root.Position
+    local td_,el=nil,nil
+    for _,en in ipairs(p:GetPlayers()) do
+        if en==l or not en.Character then continue end
+        local hd=en.Character:FindFirstChild("Head") or en.Character:FindFirstChild("HumanoidRootPart")
+        if not hd or not hd:IsA("BasePart") then continue end
+        local ep=hd.Position
+        if (ep-my).Magnitude>dr then continue end
+        if not ve(ep,en.Character) then continue end
+        local dm=(my-ep).Unit
+        local ang=math.deg(math.acos(math.clamp(hd.CFrame.LookVector:Dot(dm),-1,1)))
+        if ang<=da then td_=dm el=hd.CFrame.LookVector break end
+    end
+    if td_ then
+        local perp=Vector3.new(td_.Z,0,-td_.X).Unit
+        if el then
+            local lh=Vector3.new(el.X,0,el.Z)
+            if lh.Magnitude>0.01 then if lh.Unit:Dot(perp)>0 then perp=-perp end end
         end
-    end
-    checkDodge()
-end)
-
--- =================== МЕНЮ (перетаскиваемое) ===================
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "RageMenu"
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 170, 0, 130) -- увеличена высота под третью кнопку
-mainFrame.Position = UDim2.new(0.5, -85, 0.1, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-mainFrame.BackgroundTransparency = 0.2
-mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
-mainFrame.Draggable = false
-mainFrame.Parent = screenGui
-
--- Заголовок
-local titleBar = Instance.new("TextButton")
-titleBar.Size = UDim2.new(1, 0, 0, 20)
-titleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-titleBar.Text = "RAGE v2"
-titleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleBar.Font = Enum.Font.SourceSansBold
-titleBar.TextSize = 14
-titleBar.BorderSizePixel = 0
-titleBar.Parent = mainFrame
-
--- Угол
-local angleLabel = Instance.new("TextLabel")
-angleLabel.Size = UDim2.new(0, 50, 0, 16)
-angleLabel.Position = UDim2.new(0, 5, 0, 25)
-angleLabel.BackgroundTransparency = 1
-angleLabel.Text = "Angle:"
-angleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-angleLabel.Font = Enum.Font.SourceSans
-angleLabel.TextSize = 12
-angleLabel.Parent = mainFrame
-
-local angleInput = Instance.new("TextBox")
-angleInput.Size = UDim2.new(0, 60, 0, 18)
-angleInput.Position = UDim2.new(0, 55, 0, 24)
-angleInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-angleInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-angleInput.Font = Enum.Font.SourceSans
-angleInput.TextSize = 12
-angleInput.Text = tostring(AIM_ANGLE)
-angleInput.Parent = mainFrame
-
-angleInput.FocusLost:Connect(function()
-    local num = tonumber(angleInput.Text)
-    if num and num >= 0 and num <= 180 then
-        AIM_ANGLE = num
-    else
-        angleInput.Text = tostring(AIM_ANGLE)
-    end
-end)
-
--- Кнопка ESP
-local espButton = Instance.new("TextButton")
-espButton.Size = UDim2.new(0, 70, 0, 25)
-espButton.Position = UDim2.new(0, 5, 0, 48)
-espButton.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(180, 0, 0)
-espButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-espButton.Font = Enum.Font.SourceSansBold
-espButton.TextSize = 12
-espButton.Text = ESP_ENABLED and "ESP: ON" or "ESP: OFF"
-espButton.Parent = mainFrame
-
-espButton.MouseButton1Click:Connect(function()
-    ESP_ENABLED = not ESP_ENABLED
-    if ESP_ENABLED then
-        espButton.Text = "ESP: ON"
-        espButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then updateESP(player) end
+        if dc(my,perp,dd) then root.CFrame=root.CFrame+perp*dd
+        elseif dc(my,-perp,dd) then root.CFrame=root.CFrame-perp*dd
+        else for test=dd-5,1,-1 do if dc(my,perp,test) then root.CFrame=root.CFrame+perp*test break end end
         end
-    else
-        espButton.Text = "ESP: OFF"
-        espButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-        for player, _ in pairs(playerHighlights) do
-            removeESP(player)
-        end
-        playerHighlights = {}
+        ld=tick()
     end
+end
+
+-- Main loop
+r.RenderStepped:Connect(function()
+    local ta_=ra()
+    taf(ta_)
+    dod()
 end)
 
--- Кнопка Aimbot
-local aimButton = Instance.new("TextButton")
-aimButton.Size = UDim2.new(0, 70, 0, 25)
-aimButton.Position = UDim2.new(0, 85, 0, 48)
-aimButton.BackgroundColor3 = AIMBOT_ENABLED and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(180, 0, 0)
-aimButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-aimButton.Font = Enum.Font.SourceSansBold
-aimButton.TextSize = 12
-aimButton.Text = AIMBOT_ENABLED and "Aimbot: ON" or "Aimbot: OFF"
-aimButton.Parent = mainFrame
-
-aimButton.MouseButton1Click:Connect(function()
-    AIMBOT_ENABLED = not AIMBOT_ENABLED
-    if AIMBOT_ENABLED then
-        aimButton.Text = "Aimbot: ON"
-        aimButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-    else
-        aimButton.Text = "Aimbot: OFF"
-        aimButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-    end
+-- Init
+for _,o in ipairs(l.PlayerGui:GetChildren()) do if o.Name=="LoadingUI" then o:Destroy() end end
+cm()
+l.CharacterAdded:Connect(function()
+    cm()
+    local hum=l.Character and l.Character:FindFirstChild("Humanoid")
+    if hum then hum.WalkSpeed=ws end
 end)
-
--- Кнопка Dodge
-local dodgeButton = Instance.new("TextButton")
-dodgeButton.Size = UDim2.new(0, 70, 0, 25)
-dodgeButton.Position = UDim2.new(0, 5, 0, 78)
-dodgeButton.BackgroundColor3 = DODGE_ENABLED and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(180, 0, 0)
-dodgeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-dodgeButton.Font = Enum.Font.SourceSansBold
-dodgeButton.TextSize = 12
-dodgeButton.Text = DODGE_ENABLED and "Dodge: ON" or "Dodge: OFF"
-dodgeButton.Parent = mainFrame
-
-dodgeButton.MouseButton1Click:Connect(function()
-    DODGE_ENABLED = not DODGE_ENABLED
-    if DODGE_ENABLED then
-        dodgeButton.Text = "Dodge: ON"
-        dodgeButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-    else
-        dodgeButton.Text = "Dodge: OFF"
-        dodgeButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-    end
-end)
-
--- Перетаскивание меню
-local dragging = false
-local dragStartPos = nil
-local frameStartPos = nil
-
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStartPos = input.Position
-        frameStartPos = mainFrame.Position
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStartPos
-        mainFrame.Position = UDim2.new(
-            frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
-            frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-
-print("[] RAGE mode v2: ESP + Aimbot + Auto-Dodge loaded. Menu ready.")
+if l.Character then
+    local hum=l.Character:FindFirstChild("Humanoid")
+    if hum then hum.WalkSpeed=ws end
+end
+print("Ready.")   -- key notice removed

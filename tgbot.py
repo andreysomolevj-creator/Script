@@ -12,9 +12,9 @@ from datetime import datetime, timedelta
 from telethon import TelegramClient, events
 import matplotlib.pyplot as plt
 
-API_ID = int(os.getenv("TELEGRAM_API_ID", "0"))
-API_HASH = os.getenv("TELEGRAM_API_HASH", "")
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+API_ID = int(os.getenv("38866792", "0"))
+API_HASH = os.getenv("4001b0e0d099543bf0099d110b59650d", "")
+BOT_TOKEN = os.getenv("8377576644:AAEuIPq2n8I71MYDVzmdBS9O0SlEbqkNUag", "")
 
 if not API_ID or not API_HASH or not BOT_TOKEN:
     raise RuntimeError("Set TELEGRAM_API_ID, TELEGRAM_API_HASH and TELEGRAM_BOT_TOKEN environment variables")
